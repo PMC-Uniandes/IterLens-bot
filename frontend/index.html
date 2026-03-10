@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador WhatsApp</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="chat-header">
+        <h1>Simulador WhatsApp</h1>
+      </header>
+
+      <div class="config">
+        <label
+          >API
+          <input
+            type="text"
+            id="api-url"
+            placeholder="http://localhost:8000"
+            value="http://localhost:8000"
+        /></label>
+        <label
+          >Teléfono
+          <input
+            type="text"
+            id="phone"
+            placeholder="+56912345678"
+            value="+56912345678"
+        /></label>
+      </div>
+
+      <div class="messages-container" id="messages-container">
+        <div id="messages" class="messages"></div>
+      </div>
+
+      <div class="input-area">
+        <input
+          type="text"
+          id="message-input"
+          class="message-input"
+          placeholder="Escribe un mensaje"
+          autocomplete="off"
+        />
+        <button id="send-btn" class="send-btn" aria-label="Enviar">➤</button>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
