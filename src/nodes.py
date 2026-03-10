@@ -365,3 +365,32 @@ def list_failures(state: ReportState):
         lineas.append("")
 
     return {"messages": [AIMessage(content="\n".join(lineas))]}
+
+
+def fallback(state: ReportState):
+    messages = state.get("messages", [])
+
+    greeting = True if len(messages) <= 1 else False
+
+    last_message = messages[-1].content if messages else ""
+    
+    prompt = f"""Eres Lens, un asistente de mantenimiento industrial para plantas manufactureras.
+    
+    ¿Debes saludar al usuario?:"{greeting}"
+
+    El usuario escribió: "{last_message}"
+
+    Responde de forma breve y amable en español. Puedes:
+    - Explicar qué puedes hacer si te lo preguntan 
+    - Responder preguntas generales sobre mantenimiento industrial
+    - Si el mensaje es completamente incomprensible o irrelevante, di explícitamente que no entendiste y explica qué puedes hacer
+
+    Lo que SÍ puedes hacer:
+    - Registrar fallas de máquinas (pídele que te diga la máquina, tipo de falla, turno y tiempo parado)
+    - Mostrar las máquinas disponibles
+    - Mostrar los tipos de parada disponibles
+
+    Sé conciso. Máximo 3 líneas."""
+
+    response = llm.invoke(prompt)
+    return {"messages": [AIMessage(content=response.content)]}

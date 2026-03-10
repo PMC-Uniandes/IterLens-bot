@@ -11,7 +11,8 @@ from .nodes import (
     list_failures,
     save_report,
     cancel_report,
-    restart
+    restart,
+    fallback
 )
 from .state import ReportState
 from .config import memory
@@ -33,6 +34,7 @@ def build_graph() -> StateGraph:
     graph_builder.add_node("save_report", save_report)
     graph_builder.add_node("cancel_report", cancel_report)
     graph_builder.add_node("restart_node", restart)
+    graph_builder.add_node("fallback_node", fallback)
 
 
     # Agregar aristas
@@ -45,17 +47,7 @@ def build_graph() -> StateGraph:
     # Agregar aristas condicionales
     graph_builder.add_conditional_edges(
         "parse_intent",
-        intent_router,
-        {
-            "saludo": "greeting",
-            "reportar_falla": "report",
-            "completar_reporte": "report",
-            "confirmar": "confirm_node",
-            "listar_maquinas": "list_machines",
-            "listar_tipos_parada": "list_failures",
-            "cancelar": "cancel_report",
-            "__end__": END
-        }
+        intent_router
     )
 
     graph_builder.add_conditional_edges(

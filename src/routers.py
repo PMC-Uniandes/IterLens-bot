@@ -2,14 +2,19 @@ from .state import ReportState
 from langgraph.graph import END
 
 def intent_router(state: ReportState):
-    intent = state['intent']
+    routes = {
+        "saludo":               "greeting",
+        "reportar_falla":       "report",
+        "completar_reporte":    "report",
+        "confirmar":            "confirm_node",
+        "listar_maquinas":      "list_machines",
+        "listar_tipos_parada":  "list_failures",
+        "cancelar":             "cancel_report",
+        "otro":                 "fallback_node",
+        "__end__":              END
+    }
 
-    valid_intents = {"saludo", "reportar_falla", "completar_reporte", "listar_maquinas", "listar_tipos_parada", "confirmar", "cancelar"}
-
-    if intent in valid_intents:
-        return intent
-    
-    return END
+    return routes.get(state.get("intent"), "fallback_node")
 
 
 def route_after_validation(state: ReportState):
