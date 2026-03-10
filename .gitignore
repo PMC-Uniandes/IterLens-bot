@@ -72,7 +72,3 @@ dmypy.json
 # Logs
 *.log
 logs/
-
-# custom files
-generate_diagram.py
-langgraph_diagram.png
