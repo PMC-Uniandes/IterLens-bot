@@ -1,3 +1,5 @@
+![IterLens Banner](./assets/banner.png)
+
 # IterLens - LangGraph Project
 
 ## Overview
