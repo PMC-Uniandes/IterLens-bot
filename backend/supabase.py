@@ -53,7 +53,7 @@ def crear_registro_parada(
         "id_maquina":          id_maquina,
         "id_tipo_parada":      id_tipo_parada,
         "turno":               turno,
-        "tiempo_parada_horas": float(tiempo_parada_horas),
+        "tiempo_parada_horas": float(tiempo_parada_horas) if tiempo_parada_horas is not None else 0.0,
         "fecha":               datetime.now(tz).date().isoformat(),
         "observaciones":       observaciones,
         "registrado_por":      registrado_por,

@@ -234,6 +234,12 @@ def confirm(state: ReportState) -> dict:
         last_message = state["messages"][-1].content
         response = confirm_llm.invoke(last_message)
 
+        if response.confirm is None:
+            return {
+                "awaiting_confirmation": True,
+                "messages": [AIMessage(content="No entendí tu respuesta. ¿Confirmas el registro? Responde sí o no.")]
+            }
+
         return {
             "awaiting_confirmation": False,
             "confirmed": response.confirm

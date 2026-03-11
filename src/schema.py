@@ -72,4 +72,4 @@ class ExtractionSchema(BaseModel):
 
 
 class ConfirmationSchema(BaseModel):
-    confirm: bool
+    confirm: Optional[bool] = Field(None, description="True si confirma, False si cancela")
