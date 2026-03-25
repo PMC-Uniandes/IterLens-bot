@@ -72,4 +72,19 @@ class ExtractionSchema(BaseModel):
 
 
 class ConfirmationSchema(BaseModel):
-    confirm: Optional[bool] = Field(None, description="True si confirma, False si cancela")
+    confirm: Optional[bool] = Field(
+        None,
+        description="""
+        Indica si el usuario confirma o cancela la acción.
+        
+        True cuando el usuario dice cosas como:
+        - "sí", "si", "claro", "dale", "confirmo", "guardalo", "está bien", 
+          "de acuerdo", "perfecto", "ok", "listo", "adelante", "correcto"
+        
+        False cuando el usuario dice cosas como:
+        - "no", "cancel", "cancelar", "olvídalo", "no quiero", "mejor no",
+          "cambiar", "volver", "atrás", "negativo"
+        
+        None solo si el mensaje es completamente ambiguo y no se puede determinar.
+        """
+    )
