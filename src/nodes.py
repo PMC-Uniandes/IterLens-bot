@@ -99,7 +99,7 @@ def parse_intent(state: ReportState):
 def greeting_handler(state: ReportState):
     print("[GREETING] Greet user...")
 
-    response = "¡Hola! Soy Len, tu asistente de mantenimiento. \n¿Quieres reportar un incidente con alguna maquina?"
+    response = "¡Hola! Soy Lens, tu asistente de mantenimiento. \n¿Quieres reportar un incidente con alguna maquina?"
 
     return {
         "messages": [AIMessage(response)],
