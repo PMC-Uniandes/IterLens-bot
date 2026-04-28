@@ -94,7 +94,7 @@ async def whatsapp_webhook(message: Message):
 async def telegram_webhook(request: Request):
     update = await request.json()
  
-    extracted = extract_message_data(update)
+    extracted = await extract_message_data(update)
     if not extracted:
         # Update sin texto (sticker, foto, etc.) — ignorar silenciosamente
         return {"ok": True}
