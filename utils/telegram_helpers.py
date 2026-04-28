@@ -1,5 +1,7 @@
 import httpx
 
+from utils.elevenlabs_helpers import transcribe_voice
+
 from utils.constants import TELEGRAM_API
 
 async def send_message(chat_id: int, text: str, reply_to: int = None):
@@ -18,7 +20,7 @@ async def send_message(chat_id: int, text: str, reply_to: int = None):
         await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
  
  
-def extract_message_data(update: dict) -> tuple[int, int, str, str] | None:
+async def extract_message_data(update: dict) -> tuple[int, int, str, str] | None:
     """
     Extrae (chat_id, message_id, user_id, text) del Update de Telegram.
     Retorna None si el update no contiene un mensaje de texto.
@@ -29,7 +31,11 @@ def extract_message_data(update: dict) -> tuple[int, int, str, str] | None:
  
     text = message.get("text", "").strip()
     if not text:
-        return None
+        voice = message.get("voice")
+        if voice:
+            text = await transcribe_voice(voice["file_id"])
+            if not text:
+                return None  # no se pudo transcribir, ignorar
  
     chat_id = message["chat"]["id"]
     message_id = message["message_id"]
