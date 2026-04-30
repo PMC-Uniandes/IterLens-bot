@@ -11,6 +11,7 @@ from langchain_core.messages import HumanMessage
 from src.graph import build_graph
 from utils.constants import TELEGRAM_API
 from utils.telegram_helpers import extract_message_data, is_bot_mentioned, send_message, build_thread_id
+from utils.whatsapp_helpers import send_whatsapp_message
 
 
 # -----------------------
@@ -64,7 +65,7 @@ class Message(BaseModel):
 # -----------------------
 # Test Webhook
 # -----------------------
-@app.post("/webhook/whatsapp")
+@app.post("/webhook/test")
 async def whatsapp_webhook(message: Message):
 
     result = graph.invoke(
@@ -88,7 +89,7 @@ async def whatsapp_webhook(message: Message):
  
  
 # -----------------------
-# Webhook principal
+# Webhook Telegram
 # -----------------------
 @app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
@@ -131,6 +132,51 @@ async def telegram_webhook(request: Request):
     await send_message(chat_id, reply_text, reply_to=reply_to)
  
     return {"ok": True}
+
+
+# -----------------------
+# Webhook WhatsApp
+# -----------------------
+@app.post("/webhook/whatsapp")
+async def whatsapp_webhook(request: Request):
+    body = await request.json()
+
+    # Ignorar mensajes enviados por el propio bot
+    if body.get("data", {}).get("key", {}).get("fromMe"):
+        return {"status": "ignored"}
+
+    # Solo procesar evento de mensajes entrantes
+    if body.get("event") != "messages.upsert":
+        return {"status": "ignored"}
+
+    data = body.get("data", {})
+    message_data = data.get("message", {})
+
+    # Extraer texto (mensaje simple o extended)
+    text = (
+        message_data.get("conversation")
+        or message_data.get("extendedTextMessage", {}).get("text")
+    )
+    if not text:
+        return {"status": "no text"}
+
+    # remoteJid es el número en formato 573001234567@s.whatsapp.net
+    sender = data.get("key", {}).get("remoteJid", "")
+    # Usar solo el número como thread_id (sin el dominio)
+    user_id = sender.split("@")[0]
+
+    result = graph.invoke(
+        {
+            "messages": [HumanMessage(content=text)],
+            "user_id": user_id,
+        },
+        config={"configurable": {"thread_id": user_id}},
+    )
+
+    reply = result["messages"][-1].content
+    await send_whatsapp_message(sender, reply)
+
+    return {"status": "ok"}
 
 
 # -----------------------
