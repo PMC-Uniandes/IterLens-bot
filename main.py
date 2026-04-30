@@ -1,4 +1,5 @@
 import httpx
+import json
 import os
 import uvicorn
 
@@ -141,40 +142,62 @@ async def telegram_webhook(request: Request):
 async def whatsapp_webhook(request: Request):
     body = await request.json()
 
-    # Ignorar mensajes enviados por el propio bot
-    if body.get("data", {}).get("key", {}).get("fromMe"):
-        return {"status": "ignored"}
+    print("==== EVENTO ENTRANTE ====")
+    print(json.dumps(body, indent=2))
 
-    # Solo procesar evento de mensajes entrantes
+    # Validar que sea evento correcto
     if body.get("event") != "messages.upsert":
-        return {"status": "ignored"}
+        return {"status": "ignored - not messages.upsert"}
 
     data = body.get("data", {})
-    message_data = data.get("message", {})
+    messages = data.get("messages", [])
 
-    # Extraer texto (mensaje simple o extended)
+    if not messages:
+        return {"status": "ignored - no messages"}
+
+    msg = messages[0]
+
+    # Ignorar mensajes enviados por el bot
+    if msg.get("key", {}).get("fromMe"):
+        return {"status": "ignored - fromMe"}
+
+    message_data = msg.get("message", {})
+
+    # Extraer texto (soporta varios formatos)
     text = (
         message_data.get("conversation")
         or message_data.get("extendedTextMessage", {}).get("text")
     )
-    if not text:
-        return {"status": "no text"}
 
-    # remoteJid es el número en formato 573001234567@s.whatsapp.net
-    sender = data.get("key", {}).get("remoteJid", "")
-    # Usar solo el número como thread_id (sin el dominio)
+    if not text:
+        return {"status": "ignored - no text"}
+
+    sender = msg.get("key", {}).get("remoteJid", "")
+    if not sender:
+        return {"status": "ignored - no sender"}
+
     user_id = sender.split("@")[0]
 
-    result = graph.invoke(
-        {
-            "messages": [HumanMessage(content=text)],
-            "user_id": user_id,
-        },
-        config={"configurable": {"thread_id": user_id}},
-    )
+    print(f"Mensaje de {user_id}: {text}")
 
-    reply = result["messages"][-1].content
-    await send_whatsapp_message(sender, reply)
+    try:
+        # Procesar con tu grafo
+        result = graph.invoke(
+            {
+                "messages": [HumanMessage(content=text)],
+                "user_id": user_id,
+            },
+            config={"configurable": {"thread_id": user_id}},
+        )
+
+        reply = result["messages"][-1].content
+
+        # Enviar respuesta (usar SOLO el número limpio)
+        await send_whatsapp_message(user_id, reply)
+
+    except Exception as e:
+        print("ERROR PROCESANDO MENSAJE:", str(e))
+        return {"status": "error"}
 
     return {"status": "ok"}
 
