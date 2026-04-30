@@ -1,6 +1,6 @@
 import httpx
 
-from utils.constants import EVOLUTION_API_URL, EVOLUTION_INSTANCE, EVOLUTION_INSTANCE_TOKEN
+from utils.constants import EVOLUTION_API_URL, EVOLUTION_INSTANCE, EVOLUTION_API_KEY
 
 async def send_whatsapp_message(to: str, text: str):
     url = f"{EVOLUTION_API_URL}/message/sendText/{EVOLUTION_INSTANCE}"
