@@ -142,46 +142,42 @@ async def telegram_webhook(request: Request):
 async def whatsapp_webhook(request: Request):
     body = await request.json()
 
-    print("==== EVENTO ENTRANTE ====")
-    print(json.dumps(body, indent=2))
+    print("\n==== EVENTO ENTRANTE ====")
+    print(body)
 
-    # Validar que sea evento correcto
+    # 1. Ignorar mensajes del bot
+    if body.get("data", {}).get("key", {}).get("fromMe"):
+        print("❌ Ignorado: mensaje propio")
+        return {"status": "ignored"}
+
+    # 2. Validar evento
     if body.get("event") != "messages.upsert":
-        return {"status": "ignored - not messages.upsert"}
+        print("❌ Ignorado: no es messages.upsert")
+        return {"status": "ignored"}
 
     data = body.get("data", {})
-    messages = data.get("messages", [])
+    message_data = data.get("message", {})
 
-    if not messages:
-        return {"status": "ignored - no messages"}
-
-    msg = messages[0]
-
-    # Ignorar mensajes enviados por el bot
-    if msg.get("key", {}).get("fromMe"):
-        return {"status": "ignored - fromMe"}
-
-    message_data = msg.get("message", {})
-
-    # Extraer texto (soporta varios formatos)
+    # 3. Extraer texto
     text = (
         message_data.get("conversation")
         or message_data.get("extendedTextMessage", {}).get("text")
     )
 
+    print("📩 Texto recibido:", text)
+
     if not text:
-        return {"status": "ignored - no text"}
+        print("❌ No hay texto")
+        return {"status": "no text"}
 
-    sender = msg.get("key", {}).get("remoteJid", "")
-    if not sender:
-        return {"status": "ignored - no sender"}
-
+    sender = data.get("key", {}).get("remoteJid", "")
     user_id = sender.split("@")[0]
 
-    print(f"Mensaje de {user_id}: {text}")
+    print("👤 Sender:", sender)
+    print("🧵 User ID:", user_id)
 
+    # 4. Ejecutar IA
     try:
-        # Procesar con tu grafo
         result = graph.invoke(
             {
                 "messages": [HumanMessage(content=text)],
@@ -190,14 +186,23 @@ async def whatsapp_webhook(request: Request):
             config={"configurable": {"thread_id": user_id}},
         )
 
-        reply = result["messages"][-1].content
+        print("🧠 Resultado IA:", result)
 
-        # Enviar respuesta (usar SOLO el número limpio)
-        await send_whatsapp_message(user_id, reply)
+        reply = result["messages"][-1].content
+        print("💬 Reply generado:", reply)
 
     except Exception as e:
-        print("ERROR PROCESANDO MENSAJE:", str(e))
-        return {"status": "error"}
+        print("🔥 Error en graph.invoke:", e)
+        return {"status": "error in AI"}
+
+    # 5. Enviar respuesta
+    try:
+        await send_whatsapp_message(sender, reply)
+        print("✅ Mensaje enviado")
+
+    except Exception as e:
+        print("🔥 Error enviando mensaje:", e)
+        return {"status": "error sending message"}
 
     return {"status": "ok"}
 
