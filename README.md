@@ -4,23 +4,23 @@
 
 ## Overview
 
-IterLens is a conversational AI application built using LangGraph and FastAPI, designed to handle WhatsApp messages for reporting and managing machine failures in an industrial environment. The system uses a state graph to manage conversation flows, allowing users to report issues, list machines, confirm reports, and interact naturally through a WhatsApp-like interface.
+IterLens is a conversational AI application built using LangGraph and FastAPI, designed to handle Telegram and WhatsApp messages for reporting and managing machine failures in an industrial environment. The system uses a state graph to manage conversation flows, allowing operators to report issues, list machines, confirm reports, and interact naturally through messaging platforms.
 
 ## Features
 
-- **Conversational AI**: Powered by LangGraph for managing complex conversation states and routing.
-- **WhatsApp Integration**: Simulates WhatsApp webhook handling for message processing.
-- **Machine Failure Reporting**: Users can report machine failures, list available machines, and confirm reports.
-- **State Management**: Persistent conversation state using LangGraph's checkpointer.
+- **Conversational AI**: Powered by LangGraph and Mistral AI for managing complex conversation states and intent routing.
+- **Telegram Integration**: Native webhook handling with voice transcription support.
+- **WhatsApp Integration**: Evolution API webhook handling for message processing.
+- **Machine Failure Reporting**: Guided flow for reporting failures with field extraction, validation, and confirmation.
+- **State Management**: Persistent conversation state using LangGraph's checkpointer, isolated per user.
 - **Web Simulator**: Frontend simulator to test the WhatsApp-like interaction.
-- **Supabase Integration**: Backend database integration for storing reports and data.
+- **Supabase Integration**: Database for storing machines, failure types, and reports.
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- Node.js (for frontend development, optional)
+- Python 3.10 or higher
 - Supabase account (for database)
 
 ### Setup
@@ -46,13 +46,12 @@ IterLens is a conversational AI application built using LangGraph and FastAPI, d
    ```
 
 4. Set up environment variables:
-   Create a `.env` file in the root directory with your configuration:
 
+   ```bash
+   cp .env.example .env
    ```
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_key
-   MISTRAL_API_KEY=your_mistral_api_key
-   ```
+
+   Edit `.env` with your actual credentials. See [Configuration](#configuration) for all available options.
 
 5. Run the application:
 
@@ -62,55 +61,122 @@ IterLens is a conversational AI application built using LangGraph and FastAPI, d
 
    The API will be available at `http://localhost:8000`.
 
+## Configuration
+
+All settings are managed via environment variables. See `.env.example` for the full list:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEV` | Enable hot reload | `false` |
+| `PORT` | Server port | `8000` |
+| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `*` |
+| `LLM_MODEL` | Mistral AI model to use | `mistral-large-latest` |
+| `MISTRAL_API_KEY` | Mistral AI API key | — |
+| `SUPABASE_URL` | Supabase project URL | — |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key | — |
+| `TIMEZONE` | Timezone for date calculations | `America/Bogota` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | — |
+| `TELEGRAM_BOT_USERNAME` | Telegram bot username | — |
+| `WEBHOOK_URL` | Telegram webhook URL | — |
+| `EVOLUTION_API_URL` | Evolution API base URL | — |
+| `EVOLUTION_API_KEY` | Evolution API key | — |
+| `EVOLUTION_INSTANCE` | Evolution API instance name | `lensbot-whatsapp` |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key for STT | — |
+| `ELEVENLABS_MODEL` | ElevenLabs STT model | `scribe_v2` |
+| `OLD_MESSAGE_THRESHOLD_SECONDS` | Ignore messages older than this | `60` |
+
 ## Usage
 
-### Backend API
+### API Endpoints
 
-- **GET /**: Health check endpoint.
-- **POST /webhook/whatsapp**: Webhook endpoint for WhatsApp messages.
-
-Example request:
-
-```json
-{
-  "from_number": "+56912345678",
-  "body": "Hola, quiero reportar una falla"
-}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Health check |
+| `POST` | `/webhook/telegram` | Telegram webhook |
+| `POST` | `/webhook/whatsapp` | WhatsApp webhook (Evolution API) |
+| `POST` | `/webhook/test` | Direct test endpoint |
 
 ### Frontend Simulator
 
-Open `frontend/index.html` in your browser to simulate WhatsApp conversations. Configure the API URL and phone number, then send messages to test the LangGraph flow.
+Open `frontend/index.html` in your browser to simulate conversations. Configure the API URL and phone number, then send messages to test the LangGraph flow.
 
 ### Conversation Flow
 
 The LangGraph handles various intents:
 
-- Greeting: Responds to hello messages.
-- Report Failure: Guides user through reporting a machine failure.
-- List Machines: Shows available machines.
-- List Failures: Shows failure types.
-- Confirm/Cancel: Handles report confirmation.
+- **Greeting**: Responds to hello messages and offers to report an incident.
+- **Report Failure**: Guides the user through collecting machine, failure type, shift, duration, and priority.
+- **List Machines**: Shows available machines grouped by cell.
+- **List Failures**: Shows failure types grouped by OEE category.
+- **Confirm/Cancel**: Displays a summary for confirmation or cancels the report.
+- **Fallback**: Handles unrecognized messages with contextual responses.
 
 ## Project Structure
 
 ```
 IterLens-langgraph/
-├── main.py                 # FastAPI application entry point
-├── requirements.txt        # Python dependencies
-├── generate_diagram.py     # Script to generate LangGraph diagram
-├── .gitignore             # Git ignore file
-├── backend/
-│   └── supabase.py        # Supabase database integration
-├── frontend/
-│   ├── index.html         # WhatsApp simulator HTML
-│   ├── app.js             # Frontend JavaScript
-│   └── styles.css         # Frontend styles
-└── src/
-    ├── config.py          # Configuration and memory setup
-    ├── graph.py           # LangGraph definition
-    ├── nodes.py           # Graph node implementations
-    ├── routers.py         # Routing logic for graph edges
-    ├── schema.py          # Data schemas
-    └── state.py           # State definitions
+├── .env.example              # Environment variables template
+├── pyproject.toml            # Project metadata and tool config
+├── requirements.txt          # Python dependencies
+├── main.py                   # FastAPI app entry point (lifespan, CORS, router registration)
+├── constants.py              # Shared constants (questions, fields, stop words, emoji maps)
+│
+├── api/                      # FastAPI route handlers
+│   ├── __init__.py
+│   └── routes/
+│       ├── __init__.py
+│       ├── telegram.py       # Telegram webhook handler
+│       ├── whatsapp.py       # WhatsApp webhook handler
+│       └── test.py           # Direct test endpoint
+│
+├── services/                 # Shared business logic
+│   ├── __init__.py
+│   ├── graph_runner.py       # invoke_graph() — DRY graph invocation
+│   └── supabase.py           # Supabase client and database queries
+│
+├── integrations/             # Platform-specific adapters
+│   ├── __init__.py
+│   ├── telegram/
+│   │   ├── __init__.py
+│   │   ├── client.py         # send_message() via Telegram API
+│   │   └── parser.py         # extract_message_data(), is_bot_mentioned(), build_thread_id()
+│   ├── whatsapp/
+│   │   ├── __init__.py
+│   │   ├── client.py         # send_whatsapp_message() via Evolution API
+│   │   └── parser.py         # extract_whatsapp_message()
+│   └── elevenlabs/
+│       ├── __init__.py
+│       └── stt.py            # transcribe_audio() — single STT function for all platforms
+│
+├── graph/ (src/)             # LangGraph orchestration
+│   ├── config.py             # LLM initialization, memory, thread config
+│   ├── graph.py              # build_graph() — state machine builder
+│   ├── nodes.py              # All node functions (intent, greeting, report, etc.)
+│   ├── routers.py            # Conditional routing logic
+│   ├── schema.py             # Pydantic extraction schemas
+│   └── state.py              # ReportState TypedDict
+│
+├── scripts/
+│   └── generate_diagram.py   # Generate LangGraph workflow diagram
+│
+└── frontend/                 # WhatsApp simulator
+    ├── index.html
+    ├── styles.css
+    └── app.js
+```
+
+## Development
+
+### Linting and Type Checking
+
+```bash
+pip install ".[dev]"
+ruff check .
+mypy .
+```
+
+### Generate Diagram
+
+```bash
+python scripts/generate_diagram.py
 ```

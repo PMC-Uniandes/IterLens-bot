@@ -45,9 +45,12 @@ env/
 *.sublime-project
 *.sublime-workspace
 
+# opencode plans
+.opencode/
+
 # Project specific
-generate_diagram.py
 langgraph_diagram.png
+langgraph_diagram.md
 *.png
 
 # Node modules (if applicable)
