@@ -1,6 +1,6 @@
 import httpx
-import json
 import os
+import time
 import uvicorn
 
 from contextlib import asynccontextmanager
@@ -145,20 +145,37 @@ async def whatsapp_webhook(request: Request):
     print("\n==== EVENTO ENTRANTE ====")
     print(body)
 
-    # 1. Ignorar mensajes del bot
-    if body.get("data", {}).get("key", {}).get("fromMe"):
-        print("❌ Ignorado: mensaje propio")
-        return {"status": "ignored"}
+    # 1. Validar estructura básica
+    data = body.get("data", {})
+    key = data.get("key", {})
+    sender = key.get("remoteJid", "")
 
-    # 2. Validar evento
+    # 2. Ignorar mensajes propios
+    if key.get("fromMe"):
+        print("❌ Ignorado: mensaje propio")
+        return {"status": "ignored - fromMe"}
+
+    # 3. Validar evento correcto
     if body.get("event") != "messages.upsert":
         print("❌ Ignorado: no es messages.upsert")
-        return {"status": "ignored"}
+        return {"status": "ignored - not messages.upsert"}
 
-    data = body.get("data", {})
+    # 4. Ignorar grupos
+    if "@g.us" in sender:
+        print("🚫 Ignorado: mensaje de grupo")
+        return {"status": "ignored - group"}
+
+    # 5. Filtrar mensajes viejos
+    now = int(time.time())
+    msg_time = data.get("messageTimestamp", 0)
+
+    if now - msg_time > 60:
+        print(f"⏱️ Ignorado: mensaje viejo ({now - msg_time}s)")
+        return {"status": "ignored - old message"}
+
+    # 6. Extraer mensaje
     message_data = data.get("message", {})
 
-    # 3. Extraer texto
     text = (
         message_data.get("conversation")
         or message_data.get("extendedTextMessage", {}).get("text")
@@ -170,13 +187,13 @@ async def whatsapp_webhook(request: Request):
         print("❌ No hay texto")
         return {"status": "no text"}
 
-    sender = data.get("key", {}).get("remoteJid", "")
+    # 7. Identificar usuario
     user_id = sender.split("@")[0]
 
     print("👤 Sender:", sender)
     print("🧵 User ID:", user_id)
 
-    # 4. Ejecutar IA
+    # 8. Ejecutar IA
     try:
         result = graph.invoke(
             {
@@ -195,7 +212,7 @@ async def whatsapp_webhook(request: Request):
         print("🔥 Error en graph.invoke:", e)
         return {"status": "error in AI"}
 
-    # 5. Enviar respuesta
+    # 9. Enviar respuesta
     try:
         await send_whatsapp_message(sender, reply)
         print("✅ Mensaje enviado")
