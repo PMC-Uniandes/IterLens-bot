@@ -7,6 +7,8 @@ from integrations.elevenlabs.stt import transcribe_audio
 
 logger = logging.getLogger(__name__)
 
+AUDIO_FAILED_MARKER = "__AUDIO_FAILED__"
+
 
 async def extract_whatsapp_message(data: dict) -> str | None:
     """Extract text content from a WhatsApp message payload.
@@ -27,8 +29,6 @@ async def extract_whatsapp_message(data: dict) -> str | None:
         message_data.get("conversation")
         or message_data.get("extendedTextMessage", {}).get("text")
     )
-
-    AUDIO_FAILED_MARKER = "__AUDIO_FAILED__"
 
     if not text:
         audio = message_data.get("audioMessage")
