@@ -39,6 +39,19 @@ async def whatsapp_webhook(request: Request) -> dict:
         return {"status": "error", "error": "invalid json"}
 
     logger.info("Incoming WhatsApp event: %s", body.get("event", "unknown"))
+    logger.info("Webhook body keys: %s", list(body.keys()))
+
+    data = body.get("data", {})
+    message_data = data.get("message", {})
+    logger.info("Message data keys: %s", list(message_data.keys()))
+
+    # Log if audio is present (without logging full URL for security)
+    audio_msg = message_data.get("audioMessage", {})
+    if audio_msg:
+        logger.info("audioMessage found with keys: %s", list(audio_msg.keys()))
+        logger.info("audioMessage URL present: %s", bool(audio_msg.get("url")))
+        logger.info("audioMessage mimetype: %s", audio_msg.get("mimetype"))
+        logger.info("audioMessage has mediaKey: %s", bool(audio_msg.get("mediaKey")))
 
     data = body.get("data", {})
     key = data.get("key", {})
