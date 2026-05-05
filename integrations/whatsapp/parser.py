@@ -86,9 +86,11 @@ async def _download_audio_via_evolution(data: dict) -> bytes | None:
             logger.info("Requesting base64 from Evolution API for msg ID: %s", key.get("id"))
             res = await client.post(url, json=payload, headers=headers)
 
-            if res.status_code != 200:
+            if res.status_code not in (200, 201):
                 logger.error("Evolution API getBase64 failed: %d - %s", res.status_code, res.text[:300])
                 return None
+
+            logger.info("Evolution API getBase64 success: HTTP %d", res.status_code)
 
             result = res.json()
             logger.info("getBase64 response keys: %s", list(result.keys()) if isinstance(result, dict) else "not dict")

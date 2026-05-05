@@ -54,15 +54,25 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "spa") -> str:
         client = _get_client()
 
         # Detect audio format based on header bytes
+        # WhatsApp typically sends: audio/ogg (Opus in OGG container)
+        # ElevenLabs supports: ogg, mp3, wav, flac, m4a, mp4, webm
         if audio_bytes[:4] == b'RIFF':
             ext = "wav"
         elif audio_bytes[:4] == b'OggS':
+            # Check if it's OGG - could be .ogg or .oga, ElevenLabs accepts .ogg
             ext = "ogg"
-        elif audio_bytes[:3] == b'ID3' or audio_bytes[:2] == b'\xff\xfb':
+        elif audio_bytes[:3] == b'ID3' or audio_bytes[:2] in (b'\xff\xfb', b'\xff\xf3', b'\xff\xf2'):
             ext = "mp3"
+        elif audio_bytes[:4] == b'fLaC':
+            ext = "flac"
         else:
             ext = "ogg"  # Default for WhatsApp
-            logger.warning("Unknown audio format, using .ogg extension")
+            logger.warning("Unknown audio format header: %s, using .ogg", audio_bytes[:8].hex())
+
+        # Validate minimum size (at least 1KB for valid audio)
+        if len(audio_bytes) < 1024:
+            logger.error("Audio too small (%d bytes), likely corrupted", len(audio_bytes))
+            return ""
 
         logger.info("Sending audio to ElevenLabs with extension: %s", ext)
 
