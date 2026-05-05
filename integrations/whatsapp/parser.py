@@ -1,8 +1,11 @@
 """WhatsApp message parsing utilities."""
 
 import httpx
+import logging
 
 from integrations.elevenlabs.stt import transcribe_audio
+
+logger = logging.getLogger(__name__)
 
 
 async def extract_whatsapp_message(data: dict) -> str | None:
