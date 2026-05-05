@@ -6,7 +6,7 @@ import time
 from fastapi import APIRouter, Request
 
 from src.graph import build_graph
-from integrations.whatsapp.parser import extract_whatsapp_message
+from integrations.whatsapp.parser import extract_whatsapp_message, AUDIO_FAILED_MARKER
 from integrations.whatsapp.client import send_whatsapp_message
 from services.graph_runner import invoke_graph
 from constants import OLD_MESSAGE_THRESHOLD_SECONDS
@@ -78,6 +78,17 @@ async def whatsapp_webhook(request: Request) -> dict:
         return {"status": "ignored", "reason": "old message"}
 
     text = await extract_whatsapp_message(data)
+
+    # Handle audio transcription failure - send fallback message
+    if text == AUDIO_FAILED_MARKER:
+        logger.warning("Audio transcription failed, sending fallback to %s", sender)
+        fallback_msg = "Lo siento, en este momento no puedo procesar audios. ¿Podrías enviarlo en texto? 🙏"
+        try:
+            await send_whatsapp_message(sender, fallback_msg)
+        except Exception:
+            logger.exception("Failed to send audio fallback message")
+        return {"status": "ok", "reason": "audio_fallback_sent"}
+
     if not text:
         logger.info("No extractable text in message from %s", sender)
         return {"status": "ignored", "reason": "no text"}

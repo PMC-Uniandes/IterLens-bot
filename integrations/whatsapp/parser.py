@@ -28,20 +28,24 @@ async def extract_whatsapp_message(data: dict) -> str | None:
         or message_data.get("extendedTextMessage", {}).get("text")
     )
 
+    AUDIO_FAILED_MARKER = "__AUDIO_FAILED__"
+
     if not text:
         audio = message_data.get("audioMessage")
         if audio:
             logger.info("Audio message detected. Keys: %s", list(audio.keys()))
-            logger.info("Audio URL present: %s", bool(audio.get("url")))
-            logger.info("Audio mimetype: %s", audio.get("mimetype"))
-            logger.info("Audio has mediaKey: %s", bool(audio.get("mediaKey")))
 
             audio_bytes = await _download_audio_via_evolution(data)
             if audio_bytes:
                 logger.info("Audio downloaded: %d bytes", len(audio_bytes))
-                return await transcribe_audio(audio_bytes)
+                result = await transcribe_audio(audio_bytes)
+                if result is None:
+                    logger.error("Transcription failed for audio")
+                    return AUDIO_FAILED_MARKER
+                return result
             else:
                 logger.error("Failed to download audio via Evolution API")
+                return AUDIO_FAILED_MARKER
         else:
             logger.info("No audioMessage found in message_data")
 

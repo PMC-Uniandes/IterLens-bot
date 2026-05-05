@@ -25,7 +25,7 @@ def _get_client() -> ElevenLabs:
     return _client
 
 
-async def transcribe_audio(audio_bytes: bytes, language: str = "spa") -> str:
+async def transcribe_audio(audio_bytes: bytes, language: str = "spa") -> str | None:
     """Transcribe audio bytes to text using ElevenLabs Scribe.
 
     Args:
@@ -33,11 +33,11 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "spa") -> str:
         language: The language code for transcription (default: Spanish).
 
     Returns:
-        The transcribed text, or empty string on failure.
+        The transcribed text on success, or None on failure.
     """
     if not audio_bytes:
         logger.error("transcribe_audio called with empty audio_bytes")
-        return ""
+        return None
 
     logger.info("Transcribing audio: %d bytes", len(audio_bytes))
 
@@ -72,7 +72,7 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "spa") -> str:
         # Validate minimum size (at least 1KB for valid audio)
         if len(audio_bytes) < 1024:
             logger.error("Audio too small (%d bytes), likely corrupted", len(audio_bytes))
-            return ""
+            return None
 
         logger.info("Sending audio to ElevenLabs with extension: %s", ext)
 
@@ -87,4 +87,4 @@ async def transcribe_audio(audio_bytes: bytes, language: str = "spa") -> str:
         return transcription.text
     except Exception as e:
         logger.exception("Failed to transcribe audio: %s", e)
-        return ""
+        return None
