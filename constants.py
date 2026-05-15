@@ -1,5 +1,9 @@
 """Application-wide constants for the IterLens bot."""
 
+import os
+
+SUPERVISOR_WHATSAPP = os.getenv("SUPERVISOR_WHATSAPP", "")
+
 QUESTIONS = {
     "id_maquina": "¿En qué máquina ocurrió la falla?",
     "id_tipo_parada": "¿Qué tipo de falla fue? \n\nPuedes describirla o poner su código.",
@@ -21,7 +25,6 @@ VALID_INTENTS = {
     "saludo",
     "reportar_falla",
     "completar_reporte",
-    "confirmar",
     "cancelar",
     "listar_maquinas",
     "listar_tipos_parada",
@@ -42,8 +45,6 @@ CATEGORY_EMOJI = {
 }
 
 RESET_FIELDS = {
-    "confirmed": False,
-    "awaiting_confirmation": False,
     "id_maquina": None,
     "id_tipo_parada": None,
     "tipo_parada_texto": None,
@@ -54,6 +55,8 @@ RESET_FIELDS = {
     "observaciones": None,
     "missing_fields": [],
     "is_complete": False,
+    "pending_supervisor_msg": None,
+    "status": None,
 }
 
 OLD_MESSAGE_THRESHOLD_SECONDS = 60

@@ -1,15 +1,14 @@
 """Shared service for invoking the LangGraph agent."""
 
 import logging
-from typing import Any
 
 from langchain_core.messages import HumanMessage
 
 logger = logging.getLogger(__name__)
 
 
-def invoke_graph(graph, text: str, user_id: str, thread_id: str) -> str:
-    """Invoke the LangGraph agent and return the assistant's reply.
+def invoke_graph(graph, text: str, user_id: str, thread_id: str) -> dict:
+    """Invoke the LangGraph agent and return the full state dict.
 
     Args:
         graph: The compiled LangGraph instance.
@@ -18,7 +17,7 @@ def invoke_graph(graph, text: str, user_id: str, thread_id: str) -> str:
         thread_id: Conversation thread identifier for state persistence.
 
     Returns:
-        The last assistant message content from the graph execution.
+        The full state dict from the graph execution.
 
     Raises:
         Exception: Propagates any graph execution errors.
@@ -30,4 +29,4 @@ def invoke_graph(graph, text: str, user_id: str, thread_id: str) -> str:
         },
         config={"configurable": {"thread_id": thread_id}},
     )
-    return result["messages"][-1].content
+    return result

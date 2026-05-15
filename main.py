@@ -4,12 +4,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-import httpx
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import telegram, whatsapp, test
+from api.routes import test, whatsapp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,30 +16,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TELEGRAM_API = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN', '')}"
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Register the Telegram webhook on startup."""
-    webhook_url = os.getenv("WEBHOOK_URL")
-    if not webhook_url:
-        logger.warning("WEBHOOK_URL not configured — webhook not registered automatically.")
-    else:
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{TELEGRAM_API}/setWebhook",
-                    json={"url": webhook_url},
-                )
-                data = response.json()
-                if data.get("ok"):
-                    logger.info("Webhook registered at: %s", webhook_url)
-                else:
-                    logger.error("Webhook registration failed: %s", data)
-        except Exception:
-            logger.exception("Failed to register Telegram webhook")
-
+    logger.info("IterLens API starting — WhatsApp mode (Telegram disabled)")
     yield
 
 
@@ -55,7 +34,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(telegram.router)
 app.include_router(whatsapp.router)
 app.include_router(test.router)
 

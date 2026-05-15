@@ -62,6 +62,8 @@ def crear_registro_parada(
     tiempo_parada_horas: float,
     observaciones: str | None = None,
     registrado_por: str | None = None,
+    prioridad: str | None = None,
+    status: str | None = "pending",
 ) -> dict[str, Any]:
     """Create a new stop/failure report record in the database."""
     client = get_supabase_client()
@@ -74,9 +76,35 @@ def crear_registro_parada(
         "fecha": datetime.now(TZ).date().isoformat(),
         "observaciones": observaciones,
         "registrado_por": registrado_por,
+        "prioridad": prioridad,
+        "status": status,
     }
 
     row = {k: v for k, v in row.items() if v is not None}
 
     result = client.table("registro_parada").insert(row).execute()
     return result.data[0] if result.data else {}
+
+
+def get_reportes_pendientes() -> list[dict[str, Any]]:
+    """Retrieve all reports with status 'pending'."""
+    client = get_supabase_client()
+    return (
+        client.table("registro_parada")
+        .select("*")
+        .eq("status", "pending")
+        .execute()
+        .data
+    )
+
+
+def actualizar_status_reporte(ticket_id: int, nuevo_status: str) -> bool:
+    """Update the status of a report. Returns True if the record existed."""
+    client = get_supabase_client()
+    result = (
+        client.table("registro_parada")
+        .update({"status": nuevo_status})
+        .eq("id_registro_parada", ticket_id)
+        .execute()
+    )
+    return len(result.data) > 0

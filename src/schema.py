@@ -71,20 +71,16 @@ class ExtractionSchema(BaseModel):
     )
 
 
-class ConfirmationSchema(BaseModel):
-    confirm: Optional[bool] = Field(
+class SupervisorActionSchema(BaseModel):
+    accion: Optional[str] = Field(
         None,
-        description="""
-        Indica si el usuario confirma o cancela la acción.
-        
-        True cuando el usuario dice cosas como:
-        - "sí", "si", "claro", "dale", "confirmo", "guardalo", "está bien", 
-          "de acuerdo", "perfecto", "ok", "listo", "adelante", "correcto"
-        
-        False cuando el usuario dice cosas como:
-        - "no", "cancel", "cancelar", "olvídalo", "no quiero", "mejor no",
-          "cambiar", "volver", "atrás", "negativo"
-        
-        None solo si el mensaje es completamente ambiguo y no se puede determinar.
-        """
+        description=(
+            "Intención del supervisor: 'aprobar', 'rechazar', 'listar' o null si no se entiende."
+        )
+    )
+    id_ticket: Optional[str] = Field(
+        None,
+        description=(
+            "Número de ticket del reporte (ej: '123'). Solo si accion es aprobar o rechazar."
+        )
     )

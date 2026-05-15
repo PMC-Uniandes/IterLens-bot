@@ -1,10 +1,10 @@
-"""Telegram webhook handler."""
+"""
+Telegram webhook handler — DISABLED for WhatsApp-only mode.
 
-import logging
-import os
+All Telegram-related code is commented out to prevent accidental usage.
+This file is kept as a reference for future re-enabling.
 
 from fastapi import APIRouter, Request
-
 from src.graph import build_graph
 from integrations.telegram.parser import (
     build_thread_id,
@@ -15,26 +15,17 @@ from integrations.telegram.client import send_message
 from services.graph_runner import invoke_graph
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 _graph = None
 
-
 def get_graph():
-    """Get or create the compiled graph (lazy singleton)."""
     global _graph
     if _graph is None:
         _graph = build_graph()
     return _graph
 
-
 @router.post("/webhook/telegram")
 async def telegram_webhook(request: Request) -> dict:
-    """Handle incoming Telegram webhook events.
-
-    Extracts message data, invokes the LangGraph agent, and sends the reply.
-    In groups, only responds if the bot is mentioned or replied to.
-    """
     try:
         update = await request.json()
     except Exception:
@@ -69,3 +60,4 @@ async def telegram_webhook(request: Request) -> dict:
         logger.exception("Failed to send Telegram reply to chat %s", chat_id)
 
     return {"ok": True}
+"""

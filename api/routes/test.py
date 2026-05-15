@@ -33,9 +33,10 @@ async def test_webhook(from_number: str, body: str) -> dict:
         A dict with the 'reply' field containing the agent's response.
     """
     try:
-        reply = invoke_graph(get_graph(), body, from_number, from_number)
+        result = invoke_graph(get_graph(), body, from_number, from_number)
     except Exception:
         logger.exception("Graph invocation failed in test endpoint")
         return {"reply": None, "error": "graph failure"}
 
+    reply = result["messages"][-1].content if result.get("messages") else None
     return {"reply": reply}
