@@ -60,6 +60,7 @@ RESET_FIELDS = {
     "status": None,
     "last_list_items": None,
     "last_list_type": None,
+    "pending_selection_item": None,
 }
 
 OLD_MESSAGE_THRESHOLD_SECONDS = 60

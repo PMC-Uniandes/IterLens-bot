@@ -118,7 +118,16 @@ async def handle_supervisor_message(text: str, sender: str) -> dict:
             )
         return {"status": "ok"}
 
-    await send_whatsapp_message(sender, SUPERVISOR_HELP)
+    # No es una acción de supervisor — rutea al grafo para greeting/fallback
+    logger.info("Supervisor message not an action, routing to graph")
+    user_id = sender.split("@")[0]
+    try:
+        result = invoke_graph(get_graph(), text, user_id, user_id)
+        reply = result["messages"][-1].content
+        await send_whatsapp_message(sender, reply)
+    except Exception:
+        logger.exception("Graph invocation failed for supervisor")
+        await send_whatsapp_message(sender, SUPERVISOR_HELP)
     return {"status": "ok"}
 
 

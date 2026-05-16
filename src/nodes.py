@@ -34,6 +34,7 @@ def parse_intent(state: ReportState) -> dict:
     last_message = messages[-1].content
     has_active_report = state.get("missing_fields")
     has_list_shown = bool(state.get("last_list_type"))
+    has_pending_selection = bool(state.get("pending_selection_item"))
 
     context = ""
     if has_active_report:
@@ -70,18 +71,21 @@ def parse_intent(state: ReportState) -> dict:
     Ejemplos: "qué tipos de falla hay", "muéstrame los códigos", "cuáles son las opciones de parada",
     "no sé qué tipo poner", "qué categorías de falla existen", "lista los códigos"
 
-    - seleccionar_opcion: el usuario está eligiendo un elemento de una lista que el bot le mostró.
+    - seleccionar_opcion: el usuario está eligiendo un elemento de una lista que el bot le mostró,
+      o está respondiendo a una confirmación de selección (sí/no).
     Ejemplos: "la primera", "primera", "la 1", "1", "opcion 1", "segunda",
     "la segunda", "2", "tercera", "última", "la de arriba", "esa", "esa de alli",
     "la última", "esa misma", "esa máquina", "esa falla", "esa opción",
-    "la que dije", "la primera opción", "número 1"
-    SOLO aplicar si el bot mostró una lista recientemente.
+    "la que dije", "la primera opción", "número 1",
+    "sí", "si", "confirmo", "no", "cancelar selección"
+    SOLO aplicar si el bot mostró una lista recientemente o hay una selección pendiente de confirmación.
 
     - otro: el mensaje no encaja en ninguna categoría anterior.
 
     Mensaje del usuario: "{last_message}"
 
     ¿El bot mostró una lista recientemente?: {'sí' if has_list_shown else 'no'}
+    ¿Hay una selección pendiente de confirmación?: {'sí' if has_pending_selection else 'no'}
 
     Responde ÚNICAMENTE con una de estas palabras exactas, sin puntuación ni explicación:
     saludo | reportar_falla | completar_reporte | cancelar | listar_maquinas | listar_tipos_parada | seleccionar_opcion | otro
@@ -256,9 +260,18 @@ def submit_for_approval(state: ReportState) -> dict:
 
     ticket_id = str(registro.get("id_registro_parada", "???"))
 
+    prioridad_texto = (state.get("prioridad") or "").lower()
+    emoji_prioridad = PRIORITY_EMOJI.get(prioridad_texto, "\u26AA")
+
     operator_msg = (
-        f"\U0001F4DD Reporte #{ticket_id} enviado para aprobación.\n\n"
-        f"Tu reporte está en espera de que un supervisor lo revise.\n"
+        f"\U0001F4CB Resumen del incidente:\n\n"
+        f"\U0001F527 M\u00e1quina: {state.get('id_maquina')}\n"
+        f"\u26A1 Falla: {state.get('tipo_parada_texto')}\n"
+        f"\U0001F550 Turno: {state.get('turno')} | \u23F1 Duraci\u00f3n: {state.get('tiempo_parada_horas')}h\n"
+        f"{emoji_prioridad} Prioridad: {state.get('prioridad', 'No especificada')}\n"
+        f"\U0001F4DD Obs: {state.get('observaciones') or 'Ninguna'}\n\n"
+        f"\U0001F4DD Reporte #{ticket_id} enviado para aprobaci\u00f3n.\n\n"
+        f"Tu reporte est\u00e1 en espera de que un supervisor lo revise.\n"
         f"Puedes hacer otro reporte mientras tanto si lo necesitas."
     )
 
@@ -282,9 +295,73 @@ def submit_for_approval(state: ReportState) -> dict:
 
 
 def handle_selection(state: ReportState) -> dict:
-    """Handle user selection from a displayed list via ordinal."""
+    """Handle user selection from a displayed list, with confirmation step."""
     logger.info("Handling selection from list...")
 
+    pending = state.get("pending_selection_item")
+
+    # ── 2do llamado: usuario respondió a la confirmación ──
+    if pending:
+        logger.info("Processing confirmation for pending selection")
+        try:
+            pending_data = json.loads(pending)
+        except Exception:
+            pending_data = None
+
+        last_message = state["messages"][-1].content
+
+        prompt = f"""
+        El usuario dijo: "{last_message}"
+
+        El bot preguntó si confirma la selección de un elemento.
+        ¿El usuario está confirmando (sí, dale, confirmo, ok, correcto, adelante)
+        o rechazando (no, cancelar, otra, mejor no, equivoqué)?
+
+        Responde SOLO con: si o no
+        Si no se entiende: ?
+        """
+
+        try:
+            response = llm.invoke(prompt)
+            decision = response.content.strip().lower().rstrip(".,;!")
+        except Exception:
+            decision = "?"
+
+        if decision == "si":
+            result = {}
+            if pending_data and pending_data.get("field_type") == "maquinas":
+                result["id_maquina"] = pending_data["id"]
+                result["maquina_texto"] = pending_data["name"]
+                confirm_msg = f"\u2705 Genial, {pending_data.get('name', '?')} guardada."
+            elif pending_data and pending_data.get("field_type") == "tipos_parada":
+                result["id_tipo_parada"] = pending_data["id"]
+                result["tipo_parada_texto"] = pending_data["description"]
+                confirm_msg = f"\u2705 Genial, {pending_data.get('description', '?')} guardada."
+            else:
+                confirm_msg = "\u2705 Guardado."
+
+            result["messages"] = [AIMessage(content=confirm_msg)]
+            result["pending_selection_item"] = None
+            result["last_list_items"] = None
+            result["last_list_type"] = None
+            return result
+
+        elif decision == "no":
+            result = {"pending_selection_item": None}
+            if pending_data and pending_data.get("field_type") == "maquinas":
+                result["messages"] = [AIMessage(content="\u00bfEn qu\u00e9 m\u00e1quina ocurri\u00f3 la falla?")]
+            elif pending_data and pending_data.get("field_type") == "tipos_parada":
+                result["messages"] = [AIMessage(content="\u00bfQu\u00e9 tipo de falla fue?\n\nPuedes describirla o poner su c\u00f3digo.")]
+            else:
+                result["messages"] = [AIMessage(content="Selecci\u00f3n cancelada.")]
+            return result
+
+        else:
+            return {
+                "messages": [AIMessage(content="No entend\u00ed tu respuesta. \u00bfConfirmas la selecci\u00f3n? Responde s\u00ed o no.")],
+            }
+
+    # ── 1er llamado: usuario dio un ordinal ──
     last_list_type = state.get("last_list_type")
     last_list_items = state.get("last_list_items")
 
@@ -325,7 +402,7 @@ def handle_selection(state: ReportState) -> dict:
     try:
         response = llm.invoke(prompt)
         index_str = response.content.strip().rstrip(".,;!")
-        index = int(index_str) - 1  # convert to 0-based
+        index = int(index_str) - 1
     except Exception:
         index = -1
 
@@ -339,24 +416,27 @@ def handle_selection(state: ReportState) -> dict:
         }
 
     selected = items[index]
-    result = {}
 
     if last_list_type == "maquinas":
-        result["id_maquina"] = selected["id"]
-        result["maquina_texto"] = selected["name"]
-        confirm_msg = f"Entendido, has seleccionado {selected['id']} \u2014 {selected['name']}"
+        name = f"{selected['id']} \u2014 {selected['name']}"
+        field_type = "maquinas"
     elif last_list_type == "tipos_parada":
-        result["id_tipo_parada"] = selected["id"]
-        result["tipo_parada_texto"] = selected["description"]
-        confirm_msg = f"Entendido, has seleccionado {selected['code']} \u2014 {selected['description']}"
+        name = f"{selected['code']} \u2014 {selected['description']}"
+        field_type = "tipos_parada"
     else:
-        confirm_msg = f"Has seleccionado: {selected.get('name') or selected.get('description', '?')}"
+        name = selected.get("name") or selected.get("description", "?")
+        field_type = last_list_type
 
-    result["messages"] = [AIMessage(content=confirm_msg)]
-    result["last_list_items"] = None
-    result["last_list_type"] = None
-
-    return result
+    return {
+        "messages": [AIMessage(content=f"Seleccionaste {name}. \u00bfConfirmas?")],
+        "pending_selection_item": json.dumps({
+            "field_type": field_type,
+            "id": selected.get("id"),
+            "name": selected.get("name"),
+            "code": selected.get("code"),
+            "description": selected.get("description"),
+        }, ensure_ascii=False),
+    }
 
 
 def cancel_report(state: ReportState) -> dict:
@@ -403,8 +483,6 @@ def list_machines(state: ReportState) -> dict:
             })
         lineas.append("")
 
-    lineas.append("Responde: la primera, la segunda, etc.")
-
     return {
         "messages": [AIMessage(content="\n".join(lineas))],
         "last_list_type": "maquinas",
@@ -442,8 +520,6 @@ def list_failures(state: ReportState) -> dict:
             })
         lineas.append("")
 
-    lineas.append("Responde: la primera, la segunda, etc.")
-
     return {
         "messages": [AIMessage(content="\n".join(lineas))],
         "last_list_type": "tipos_parada",
@@ -474,7 +550,7 @@ LO QUE PUEDES HACER:
 - Mostrar máquinas disponibles
 - Mostrar tipos de parada
 
-Sé conciso: máximo 4 líneas."""
+Sé conciso: máximo 3 líneas."""
 
     response = llm.invoke(prompt)
     return {"messages": [AIMessage(content=response.content)]}

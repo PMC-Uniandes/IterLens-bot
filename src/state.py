@@ -28,3 +28,5 @@ class ReportState(TypedDict):
 
     last_list_items: Optional[str]
     last_list_type: Optional[str]
+
+    pending_selection_item: Optional[str]
