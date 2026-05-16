@@ -332,18 +332,26 @@ def handle_selection(state: ReportState) -> dict:
             if pending_data and pending_data.get("field_type") == "maquinas":
                 result["id_maquina"] = pending_data["id"]
                 result["maquina_texto"] = pending_data["name"]
-                confirm_msg = f"\u2705 Genial, {pending_data.get('name', '?')} guardada."
             elif pending_data and pending_data.get("field_type") == "tipos_parada":
                 result["id_tipo_parada"] = pending_data["id"]
                 result["tipo_parada_texto"] = pending_data["description"]
-                confirm_msg = f"\u2705 Genial, {pending_data.get('description', '?')} guardada."
-            else:
-                confirm_msg = "\u2705 Guardado."
 
-            result["messages"] = [AIMessage(content=confirm_msg)]
             result["pending_selection_item"] = None
             result["last_list_items"] = None
             result["last_list_type"] = None
+
+            # Continuar con el flujo de validator: preguntar siguiente campo faltante
+            merged = dict(state)
+            merged.update(result)
+            missing = [f for f in REQUIRED_FIELDS if not merged.get(f)]
+            if missing:
+                result["missing_fields"] = missing
+                result["is_complete"] = False
+                result["messages"] = [AIMessage(content=QUESTIONS[missing[0]])]
+            else:
+                result["missing_fields"] = []
+                result["is_complete"] = True
+
             return result
 
         elif decision == "no":
