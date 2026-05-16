@@ -4,6 +4,7 @@ from langgraph.graph import END, START, StateGraph
 
 from src.config import memory
 from src.nodes import (
+    ask_observations,
     cancel_report,
     fallback,
     greeting_handler,
@@ -19,6 +20,7 @@ from src.nodes import (
 )
 from src.routers import (
     intent_router,
+    route_after_observation,
     route_after_validation,
 )
 from src.state import ReportState
@@ -33,6 +35,7 @@ def build_graph() -> StateGraph:
     builder.add_node("report", report_handler)
     builder.add_node("mapper_node", mapper)
     builder.add_node("validator_node", validator)
+    builder.add_node("ask_observation", ask_observations)
     builder.add_node("submit_for_approval", submit_for_approval)
     builder.add_node("handle_selection", handle_selection)
     builder.add_node("list_machines", list_machines)
@@ -51,6 +54,12 @@ def build_graph() -> StateGraph:
     builder.add_conditional_edges(
         "validator_node",
         route_after_validation,
+        {"ask_observation": "ask_observation", "__end__": END},
+    )
+
+    builder.add_conditional_edges(
+        "ask_observation",
+        route_after_observation,
         {"submit_approval": "submit_for_approval", "__end__": END},
     )
 

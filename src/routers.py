@@ -7,6 +7,9 @@ from src.state import ReportState
 
 def intent_router(state: ReportState) -> str:
     """Route to the appropriate node based on the classified intent."""
+    if state.get("pending_observation"):
+        return "ask_observation"
+
     routes = {
         "saludo": "greeting",
         "reportar_falla": "report",
@@ -22,7 +25,14 @@ def intent_router(state: ReportState) -> str:
 
 
 def route_after_validation(state: ReportState) -> str:
-    """Route to submit_for_approval if complete, otherwise END."""
+    """Route to ask_observation if complete, otherwise END."""
     if state.get("is_complete"):
+        return "ask_observation"
+    return "__end__"
+
+
+def route_after_observation(state: ReportState) -> str:
+    """Route to submit_for_approval when done, otherwise END."""
+    if state.get("pending_observation") == "done":
         return "submit_approval"
     return "__end__"

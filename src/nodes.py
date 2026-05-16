@@ -243,6 +243,62 @@ def mapper(state: ReportState) -> dict:
     return result
 
 
+def ask_observations(state: ReportState) -> dict:
+    """Ask user if they want to add observations before submitting."""
+    logger.info("Asking about observations...")
+
+    pending = state.get("pending_observation")
+
+    # No obsevaciones and no pending flag → ask
+    if pending is None:
+        if state.get("observaciones"):
+            return {"pending_observation": "done"}
+        return {
+            "pending_observation": "ask",
+            "messages": [AIMessage(content="\u00bfDeseas agregar alguna observaci\u00f3n adicional? (s\u00ed o no)")],
+        }
+
+    # User responded to the first question (yes/no)
+    if pending == "ask":
+        last_message = state["messages"][-1].content
+        prompt = f"""
+        El usuario dijo: "{last_message}"
+        El bot preguntó si quiere agregar una observación al reporte.
+        ¿El usuario está diciendo que sí (quiere agregar) o que no (no quiere)?
+
+        Responde SOLO con: si o no
+        Si no se entiende: ?
+        """
+        try:
+            response = llm.invoke(prompt)
+            decision = response.content.strip().lower().rstrip(".,;!")
+        except Exception:
+            decision = "?"
+
+        if decision == "si":
+            return {
+                "pending_observation": "text",
+                "messages": [AIMessage(content="\u00bfQu\u00e9 observaci\u00f3n deseas agregar?")],
+            }
+        elif decision == "no":
+            return {"pending_observation": "done"}
+        else:
+            return {
+                "messages": [AIMessage(content="No entend\u00ed. \u00bfDeseas agregar una observaci\u00f3n? Responde s\u00ed o no.")],
+            }
+
+    # User provided the observation text
+    if pending == "text":
+        last_message = state["messages"][-1].content
+        return {
+            "observaciones": last_message,
+            "pending_observation": "done",
+        }
+
+    # Shouldn't reach here
+    return {"pending_observation": None}
+
+
 def submit_for_approval(state: ReportState) -> dict:
     """Save report with pending status and notify supervisor."""
     logger.info("Submitting report for supervisor approval...")
