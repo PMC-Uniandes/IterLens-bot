@@ -25,5 +25,7 @@ async def send_whatsapp_message(to: str, text: str) -> None:
 
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload, headers=headers)
-        if response.status_code != 200:
-            logger.error("Failed to send WhatsApp message: %s", response.text)
+        if response.status_code == 200 or response.status_code == 201:
+            logger.info("Message sent successfully to %s (HTTP %d)", to, response.status_code)
+        else:
+            logger.error("Failed to send WhatsApp message to %s: HTTP %d - %s", to, response.status_code, response.text)
