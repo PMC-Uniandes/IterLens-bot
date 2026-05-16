@@ -25,3 +25,6 @@ class ReportState(TypedDict):
 
     pending_supervisor_msg: Optional[str]
     status: Optional[str]
+
+    last_list_items: Optional[str]
+    last_list_type: Optional[str]

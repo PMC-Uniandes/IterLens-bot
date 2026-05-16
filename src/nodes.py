@@ -1,5 +1,6 @@
 """LangGraph node functions for the maintenance report workflow."""
 
+import json
 import logging
 from collections import defaultdict
 
@@ -32,6 +33,7 @@ def parse_intent(state: ReportState) -> dict:
 
     last_message = messages[-1].content
     has_active_report = state.get("missing_fields")
+    has_list_shown = bool(state.get("last_list_type"))
 
     context = ""
     if has_active_report:
@@ -68,12 +70,21 @@ def parse_intent(state: ReportState) -> dict:
     Ejemplos: "qué tipos de falla hay", "muéstrame los códigos", "cuáles son las opciones de parada",
     "no sé qué tipo poner", "qué categorías de falla existen", "lista los códigos"
 
+    - seleccionar_opcion: el usuario está eligiendo un elemento de una lista que el bot le mostró.
+    Ejemplos: "la primera", "primera", "la 1", "1", "opcion 1", "segunda",
+    "la segunda", "2", "tercera", "última", "la de arriba", "esa", "esa de alli",
+    "la última", "esa misma", "esa máquina", "esa falla", "esa opción",
+    "la que dije", "la primera opción", "número 1"
+    SOLO aplicar si el bot mostró una lista recientemente.
+
     - otro: el mensaje no encaja en ninguna categoría anterior.
 
     Mensaje del usuario: "{last_message}"
 
+    ¿El bot mostró una lista recientemente?: {'sí' if has_list_shown else 'no'}
+
     Responde ÚNICAMENTE con una de estas palabras exactas, sin puntuación ni explicación:
-    saludo | reportar_falla | completar_reporte | cancelar | listar_maquinas | listar_tipos_parada | otro
+    saludo | reportar_falla | completar_reporte | cancelar | listar_maquinas | listar_tipos_parada | seleccionar_opcion | otro
     """
 
     response = llm.invoke(prompt)
@@ -270,6 +281,84 @@ def submit_for_approval(state: ReportState) -> dict:
     return reset
 
 
+def handle_selection(state: ReportState) -> dict:
+    """Handle user selection from a displayed list via ordinal."""
+    logger.info("Handling selection from list...")
+
+    last_list_type = state.get("last_list_type")
+    last_list_items = state.get("last_list_items")
+
+    if not last_list_type or not last_list_items:
+        return {
+            "messages": [
+                AIMessage(
+                    content="Primero necesito mostrarte una lista. \u00bfQuieres ver m\u00e1quinas disponibles o tipos de parada?"
+                )
+            ]
+        }
+
+    try:
+        items = json.loads(last_list_items)
+    except Exception:
+        items = []
+
+    if not items:
+        return {"messages": [AIMessage(content="No hay elementos en la lista.")]}
+
+    last_message = state["messages"][-1].content
+
+    items_str = "\n".join(
+        f"{i}. {item.get('name') or item.get('description') or item.get('code', '?')}"
+        for i, item in enumerate(items, 1)
+    )
+
+    prompt = f"""
+    El usuario dijo: "{last_message}"
+
+    Lista numerada mostrada al usuario:
+    {items_str}
+
+    \u00bfQu\u00e9 opci\u00f3n est\u00e1 seleccionando el usuario?
+    Responde SOLO con el n\u00famero de opci\u00f3n (1-based). Si no se entiende o no corresponde: 0
+    """
+
+    try:
+        response = llm.invoke(prompt)
+        index_str = response.content.strip().rstrip(".,;!")
+        index = int(index_str) - 1  # convert to 0-based
+    except Exception:
+        index = -1
+
+    if index < 0 or index >= len(items):
+        return {
+            "messages": [
+                AIMessage(
+                    content=f"No entend\u00ed cu\u00e1l elegiste. Responde con un n\u00famero del 1 al {len(items)}."
+                )
+            ]
+        }
+
+    selected = items[index]
+    result = {}
+
+    if last_list_type == "maquinas":
+        result["id_maquina"] = selected["id"]
+        result["maquina_texto"] = selected["name"]
+        confirm_msg = f"Entendido, has seleccionado {selected['id']} \u2014 {selected['name']}"
+    elif last_list_type == "tipos_parada":
+        result["id_tipo_parada"] = selected["id"]
+        result["tipo_parada_texto"] = selected["description"]
+        confirm_msg = f"Entendido, has seleccionado {selected['code']} \u2014 {selected['description']}"
+    else:
+        confirm_msg = f"Has seleccionado: {selected.get('name') or selected.get('description', '?')}"
+
+    result["messages"] = [AIMessage(content=confirm_msg)]
+    result["last_list_items"] = None
+    result["last_list_type"] = None
+
+    return result
+
+
 def cancel_report(state: ReportState) -> dict:
     """Cancel the current report and notify the user."""
     logger.info("Report canceled.")
@@ -301,14 +390,26 @@ def list_machines(state: ReportState) -> dict:
         celula = m.get("celula") or "Sin célula"
         por_celula[celula].append(m)
 
+    items_data = []
     lineas = ["\U0001F3ED Máquinas disponibles:\n"]
     for celula, maquinas_celula in por_celula.items():
         lineas.append(f"\U0001F4E6 {celula}")
         for m in maquinas_celula:
             lineas.append(f"  • {m['id_maquina']} — {m['nombre_maquina']}")
+            items_data.append({
+                "id": m["id_maquina"],
+                "name": m["nombre_maquina"],
+                "celula": celula,
+            })
         lineas.append("")
 
-    return {"messages": [AIMessage(content="\n".join(lineas))]}
+    lineas.append("Responde: la primera, la segunda, etc.")
+
+    return {
+        "messages": [AIMessage(content="\n".join(lineas))],
+        "last_list_type": "maquinas",
+        "last_list_items": json.dumps(items_data, ensure_ascii=False),
+    }
 
 
 def list_failures(state: ReportState) -> dict:
@@ -321,6 +422,7 @@ def list_failures(state: ReportState) -> dict:
             ]
         }
 
+    items_data = []
     por_categoria: dict[str, list] = defaultdict(list)
     for t in tipos:
         categoria = t.get("categoria_oee") or "Otra"
@@ -332,34 +434,47 @@ def list_failures(state: ReportState) -> dict:
         lineas.append(f"{emoji} {categoria}")
         for t in tipos_cat:
             lineas.append(f"  • {t['codigo']} — {t['descripcion']}")
+            items_data.append({
+                "id": t["id_tipo_parada"],
+                "code": t["codigo"],
+                "description": t["descripcion"],
+                "category": categoria,
+            })
         lineas.append("")
 
-    return {"messages": [AIMessage(content="\n".join(lineas))]}
+    lineas.append("Responde: la primera, la segunda, etc.")
+
+    return {
+        "messages": [AIMessage(content="\n".join(lineas))],
+        "last_list_type": "tipos_parada",
+        "last_list_items": json.dumps(items_data, ensure_ascii=False),
+    }
 
 
 def fallback(state: ReportState) -> dict:
-    """Handle unrecognized intents with a contextual LLM response."""
+    """Handle unrecognized intents with a contextual and charismatic response."""
     messages = state.get("messages", [])
-    is_greeting = len(messages) <= 1
     last_message = messages[-1].content if messages else ""
 
-    prompt = f"""Eres Lens, un asistente de mantenimiento industrial para plantas manufactureras.
-    
-    ¿Debes saludar al usuario?: "{is_greeting}"
+    prompt = f"""Eres Lens, un asistente de mantenimiento industrial con personalidad.
+Eres experto en inteligencia operacional y plantas manufactureras,
+pero siempre respondes con carisma y buen humor.
 
-    El usuario escribió: "{last_message}"
+El usuario escribió: "{last_message}"
 
-    Responde de forma breve y amable en español. Puedes:
-    - Explicar qué puedes hacer si te lo preguntan 
-    - Responder preguntas generales sobre mantenimiento industrial
-    - Si el mensaje es completamente incomprensible o irrelevante, di explícitamente que no entendiste y explica qué puedes hacer
+PERSONALIDAD:
+- Sé natural, como un compañero de trabajo experto y buena onda
+- Si el contexto lo permite, agrega un comentario ingenioso o una
+  expresión creativa relacionada al mundo industrial
+- Usa un tono conversacional, sin ser robótico
+- Mantén siempre el foco en ayudar
 
-    Lo que SÍ puedes hacer:
-    - Registrar fallas de máquinas (pídele que te diga la máquina, tipo de falla, turno y tiempo parado)
-    - Mostrar las máquinas disponibles
-    - Mostrar los tipos de parada disponibles
+LO QUE PUEDES HACER:
+- Registrar fallas de máquinas (pídele que te diga la máquina, tipo de falla, turno y tiempo parado)
+- Mostrar máquinas disponibles
+- Mostrar tipos de parada
 
-    Sé conciso. Máximo 3 líneas."""
+Sé conciso: máximo 4 líneas."""
 
     response = llm.invoke(prompt)
     return {"messages": [AIMessage(content=response.content)]}

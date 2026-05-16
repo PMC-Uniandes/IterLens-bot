@@ -28,6 +28,7 @@ VALID_INTENTS = {
     "cancelar",
     "listar_maquinas",
     "listar_tipos_parada",
+    "seleccionar_opcion",
 }
 
 PRIORITY_EMOJI = {
@@ -57,6 +58,8 @@ RESET_FIELDS = {
     "is_complete": False,
     "pending_supervisor_msg": None,
     "status": None,
+    "last_list_items": None,
+    "last_list_type": None,
 }
 
 OLD_MESSAGE_THRESHOLD_SECONDS = 60

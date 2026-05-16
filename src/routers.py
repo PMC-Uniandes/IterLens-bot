@@ -13,6 +13,7 @@ def intent_router(state: ReportState) -> str:
         "completar_reporte": "report",
         "listar_maquinas": "list_machines",
         "listar_tipos_parada": "list_failures",
+        "seleccionar_opcion": "handle_selection",
         "cancelar": "cancel_report",
         "otro": "fallback_node",
     }

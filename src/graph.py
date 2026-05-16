@@ -7,6 +7,7 @@ from src.nodes import (
     cancel_report,
     fallback,
     greeting_handler,
+    handle_selection,
     list_failures,
     list_machines,
     mapper,
@@ -33,6 +34,7 @@ def build_graph() -> StateGraph:
     builder.add_node("mapper_node", mapper)
     builder.add_node("validator_node", validator)
     builder.add_node("submit_for_approval", submit_for_approval)
+    builder.add_node("handle_selection", handle_selection)
     builder.add_node("list_machines", list_machines)
     builder.add_node("list_failures", list_failures)
     builder.add_node("cancel_report", cancel_report)

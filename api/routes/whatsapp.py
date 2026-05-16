@@ -2,6 +2,7 @@
 
 import logging
 import time
+import re
 
 from fastapi import APIRouter, Request
 
@@ -24,6 +25,11 @@ SUPERVISOR_HELP = (
     "- RECHAZAR # (ej: RECHAZAR 123)\n"
     "- LISTA (ver pendientes)"
 )
+
+
+def _normalize_phone(number: str) -> str:
+    """Remove +, spaces, and @s.whatsapp.net suffix for comparison."""
+    return re.sub(r"[+\s@]|s\.whatsapp\.net", "", number).strip()
 
 
 def get_graph():
@@ -168,8 +174,9 @@ async def whatsapp_webhook(request: Request) -> dict:
 
     sender_clean = sender.split("@")[0]
 
-    # Supervisor flow
-    if SUPERVISOR_WHATSAPP and sender_clean == SUPERVISOR_WHATSAPP:
+    # Normalize both sides: Evolution API sends "573143721947" (no +),
+    # while env var may be configured as "+571234567890"
+    if SUPERVISOR_WHATSAPP and _normalize_phone(sender_clean) == _normalize_phone(SUPERVISOR_WHATSAPP):
         logger.info("Supervisor message detected from %s", sender)
         return await handle_supervisor_message(text, sender)
 
