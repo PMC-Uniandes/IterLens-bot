@@ -16,6 +16,7 @@ from constants import (
     VALID_INTENTS,
     SUPERVISOR_WHATSAPP,
 )
+from integrations.whatsapp.client import send_whatsapp_message_sync
 from services.supabase import crear_registro_parada, get_maquinas, get_tipos_parada
 from src.config import llm, structured_llm
 from src.state import ReportState
@@ -343,9 +344,15 @@ def submit_for_approval(state: ReportState) -> dict:
         f"Responde: APROBAR {ticket_id}, RECHAZAR {ticket_id}, o LISTA para ver pendientes."
     )
 
+    # Send supervisor notification directly (before restart clears state)
+    if SUPERVISOR_WHATSAPP:
+        try:
+            send_whatsapp_message_sync(SUPERVISOR_WHATSAPP, supervisor_msg)
+        except Exception:
+            logger.exception("Failed to send supervisor notification")
+
     reset = dict(RESET_FIELDS)
     reset["messages"] = [AIMessage(content=operator_msg)]
-    reset["pending_supervisor_msg"] = supervisor_msg
 
     return reset
 

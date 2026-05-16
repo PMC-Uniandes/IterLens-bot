@@ -29,3 +29,17 @@ async def send_whatsapp_message(to: str, text: str) -> None:
             logger.info("Message sent successfully to %s (HTTP %d)", to, response.status_code)
         else:
             logger.error("Failed to send WhatsApp message to %s: HTTP %d - %s", to, response.status_code, response.text)
+
+
+def send_whatsapp_message_sync(to: str, text: str) -> None:
+    """Synchronous version for use inside LangGraph nodes."""
+    url = f"{EVOLUTION_API_URL}/message/sendText/{EVOLUTION_INSTANCE}"
+    headers = {"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"}
+    payload = {"number": to, "text": text}
+
+    with httpx.Client() as client:
+        response = client.post(url, json=payload, headers=headers)
+        if response.status_code == 200 or response.status_code == 201:
+            logger.info("Message sent successfully to %s (HTTP %d)", to, response.status_code)
+        else:
+            logger.error("Failed to send WhatsApp message to %s: HTTP %d - %s", to, response.status_code, response.text)

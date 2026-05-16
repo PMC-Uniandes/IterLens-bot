@@ -23,7 +23,6 @@ class ReportState(TypedDict):
     missing_fields: list[str]
     is_complete: bool
 
-    pending_supervisor_msg: Optional[str]
     status: Optional[str]
 
     last_list_items: Optional[str]

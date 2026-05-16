@@ -56,7 +56,6 @@ RESET_FIELDS = {
     "observaciones": None,
     "missing_fields": [],
     "is_complete": False,
-    "pending_supervisor_msg": None,
     "status": None,
     "last_list_items": None,
     "last_list_type": None,

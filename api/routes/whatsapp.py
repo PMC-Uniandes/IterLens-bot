@@ -208,12 +208,4 @@ async def whatsapp_webhook(request: Request) -> dict:
         logger.exception("Failed to send WhatsApp reply to %s", sender)
         return {"status": "error", "reason": "send failure"}
 
-    # Send supervisor notification if the report was submitted for approval
-    supervisor_msg = result.get("pending_supervisor_msg")
-    if supervisor_msg and SUPERVISOR_WHATSAPP:
-        try:
-            await send_whatsapp_message(SUPERVISOR_WHATSAPP, supervisor_msg)
-        except Exception:
-            logger.exception("Failed to send supervisor notification")
-
     return {"status": "ok"}
